@@ -27,8 +27,15 @@ export const Config = z.object({
 
 type Cfg = { mcpUrl: string; port: number }
 
+async function unmount(slot: { child?: Fiber }): Promise<void> {
+  if (slot.child) {
+    await slot.child.dispose()
+    slot.child = undefined
+  }
+}
+
 async function mountMcp(ctx: Context, accessToken: string, config: Cfg, slot: { child?: Fiber }): Promise<void> {
-  if (slot.child) await slot.child.dispose()
+  await unmount(slot)
   slot.child = ctx.plugin(mcpClient, {
     transport: 'streamable-http',
     serverName: 'notion',
@@ -58,6 +65,7 @@ async function refreshAndMount(
     } catch (e) {
       if (e instanceof InvalidGrantError) {
         await store.clear()
+        await unmount(slot)
         ctx.logger.error('[dsh-notion] invalid_grant: run `dsh notion login` to re-authorize')
         return
       }
@@ -94,9 +102,12 @@ async function runLogin(ctx: Context, store: NotionTokenStore, config: Cfg, slot
   const tokens = await exchangeCode(disc.tokenEndpoint, {
     clientId, code: cb.code, redirectUri: redirectBase, codeVerifier: verifier,
   })
+  if (!tokens.refreshToken) {
+    throw new Error('authorization response missing refresh_token — cannot persist a usable token')
+  }
   const stored: NotionTokens = {
     accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken!,
+    refreshToken: tokens.refreshToken,
     expiresAt: Date.now() + tokens.expiresIn * 1000,
     clientId,
   }

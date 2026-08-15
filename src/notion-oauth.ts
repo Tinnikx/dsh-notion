@@ -86,10 +86,18 @@ export function buildAuthorizeUrl(
 }
 
 function parseTokenBody(body: any): TokenResponse {
+  const accessToken: unknown = body.access_token
+  const expiresIn: unknown = body.expires_in
+  if (typeof accessToken !== 'string' || accessToken.length === 0) {
+    throw new Error('token response missing access_token')
+  }
+  if (typeof expiresIn !== 'number' || !Number.isFinite(expiresIn) || expiresIn <= 0) {
+    throw new Error('token response missing or invalid expires_in')
+  }
   return {
-    accessToken: body.access_token,
+    accessToken,
     refreshToken: body.refresh_token,
-    expiresIn: body.expires_in,
+    expiresIn,
     identity: body.user_id ? { userId: body.user_id, workspaceId: body.workspace_id } : undefined,
   }
 }
