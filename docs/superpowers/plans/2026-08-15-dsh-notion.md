@@ -931,8 +931,9 @@ export function apply(ctx: Context, config: Cfg): void {
     })
   parseCmdline(ctx, program)
 
-  // 卸载时关闭子 mcp-client
-  ctx.on('dispose', () => { void slot.child?.dispose() })
+  // 卸载时关闭子 mcp-client。cordis 4.0.1 用 `ctx.effect(() => disposer)` 做清理，
+  // 不是 `ctx.on('dispose')`。
+  ctx.effect(() => () => { void slot.child?.dispose() })
 }
 
 function scheduleRefresh(
@@ -944,18 +945,20 @@ function scheduleRefresh(
   expiresAt: number,
 ): void {
   const delay = Math.max(60_000, expiresAt - Date.now() - 5 * 60_000) // 到期前 5 分钟
-  ctx.setTimeout(() => {
+  // 用 Node 全局 setTimeout（cordis 4.0.1 无 `ctx.setTimeout`）；定时器经 `ctx.effect` 在卸载时清理。
+  const timer = setTimeout(() => {
     void refreshAndMount(ctx, store, config, slot, refreshMutex).then(() => {
       void store.load().then((t) => { if (t) scheduleRefresh(ctx, store, config, slot, refreshMutex, t.expiresAt) })
     })
   }, delay)
+  ctx.effect(() => () => clearTimeout(timer))
 }
 ```
 
 - [ ] **Step 4: 类型检查 + 单测（仅保证编译与纯函数回归）**
 
 Run: `npm run typecheck && npm test`
-Expected: 通过。`ctx.appExit` / `ctx.setTimeout` / `ctx.on` 为 Cordis 上下文 API（`appExit` 由 `dsh-cmdline` 的启动器提供，若类型报缺则用 `(ctx as any).appExit` 并注释原因）。
+Expected: 通过。`ctx.appExit` 由 `dsh-cmdline` 启动器提供（`Context` 上可选字段）；定时器用 Node 全局 `setTimeout`；清理用 `ctx.effect`（cordis 4.0.1 的 fiber 上存在 `effect`，`ctx.setTimeout`/`ctx.on('dispose')` 不存在——勿用）。若 `ctx.appExit` 类型报缺则 `(ctx as any).appExit` 并注释原因。
 
 - [ ] **Step 5: 手动验证（本地 harness）**
 
