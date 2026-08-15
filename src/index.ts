@@ -125,7 +125,11 @@ export function apply(ctx: Context, config: Cfg): void {
       const fresh = await store.load()
       if (fresh) scheduleRefresh(ctx, store, config, slot, refreshMutex, fresh.expiresAt)
     }
-  })().catch((e) => ctx.logger.error(e))
+  })().catch((e) => {
+    // 启动时短暂失败（网络 / discovery / 存储）重试，避免插件永远不挂载。
+    ctx.logger.error(e)
+    scheduleRefresh(ctx, store, config, slot, refreshMutex, Date.now() + 60_000)
+  })
 
   // 登录命令
   const program = new Command()
@@ -156,9 +160,15 @@ function scheduleRefresh(
   const delay = Math.max(60_000, expiresAt - Date.now() - 5 * 60_000) // 到期前 5 分钟
   // 用 Node 全局 setTimeout（cordis 4.0.1 无 `ctx.setTimeout`）；定时器经 `ctx.effect` 在卸载时清理。
   const timer = setTimeout(() => {
-    void refreshAndMount(ctx, store, config, slot, refreshMutex).then(() => {
-      void store.load().then((t) => { if (t) scheduleRefresh(ctx, store, config, slot, refreshMutex, t.expiresAt) })
-    })
+    void refreshAndMount(ctx, store, config, slot, refreshMutex)
+      .then(() => store.load())
+      .then((t) => { if (t) scheduleRefresh(ctx, store, config, slot, refreshMutex, t.expiresAt) })
+      .catch((e) => {
+        // 短暂失败（网络 / discovery / 存储）重试，避免刷新循环就此停止。
+        // invalid_grant 由 refreshAndMount 内部清 token 并 resolve，不会走到这里。
+        ctx.logger.error(e)
+        scheduleRefresh(ctx, store, config, slot, refreshMutex, Date.now() + 60_000)
+      })
   }, delay)
   ctx.effect(() => () => clearTimeout(timer))
 }
