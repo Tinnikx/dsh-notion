@@ -1,5 +1,164 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Fiber } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
+import { Command } from 'commander'
+import { parseCmdline } from '@deepseek-ai/dsh-cmdline'
+import * as mcpClient from '@deepseek-ai/dsh-mcp-client'
+import { NotionTokenStore, type NotionTokens } from './notion-token-store.js'
+import {
+  discoverOAuth,
+  registerClient,
+  buildAuthorizeUrl,
+  exchangeCode,
+  refreshAccessToken,
+  generateVerifier,
+  generateState,
+  computeChallenge,
+  InvalidGrantError,
+} from './notion-oauth.js'
+import { startLoginServer } from './login-server.js'
 
 export const name = 'notion'
+export const inject = ['cmdlineArgs', 'credentials']
 
-export function apply(_ctx: Context): void {}
+export const Config = z.object({
+  mcpUrl: z.string().default('https://mcp.notion.com/mcp'),
+  port: z.number().default(53007),
+})
+
+type Cfg = { mcpUrl: string; port: number }
+
+async function mountMcp(ctx: Context, accessToken: string, config: Cfg, slot: { child?: Fiber }): Promise<void> {
+  if (slot.child) await slot.child.dispose()
+  slot.child = ctx.plugin(mcpClient, {
+    transport: 'streamable-http',
+    serverName: 'notion',
+    url: config.mcpUrl,
+    headers: { Authorization: `Bearer ${accessToken}` },
+    toolCallTimeoutMs: 60_000,
+    failOnStartupError: false,
+  })
+}
+
+async function refreshAndMount(
+  ctx: Context,
+  store: NotionTokenStore,
+  config: Cfg,
+  slot: { child?: Fiber },
+  refreshMutex: { running: boolean },
+): Promise<void> {
+  if (refreshMutex.running) return
+  refreshMutex.running = true
+  try {
+    const tokens = await store.load()
+    if (!tokens) return
+    const disc = await discoverOAuth(config.mcpUrl)
+    let next
+    try {
+      next = await refreshAccessToken(disc.tokenEndpoint, { clientId: tokens.clientId, refreshToken: tokens.refreshToken })
+    } catch (e) {
+      if (e instanceof InvalidGrantError) {
+        await store.clear()
+        ctx.logger.error('[dsh-notion] invalid_grant: run `dsh notion login` to re-authorize')
+        return
+      }
+      throw e
+    }
+    const refreshed: NotionTokens = {
+      accessToken: next.accessToken,
+      refreshToken: next.refreshToken ?? tokens.refreshToken,
+      expiresAt: Date.now() + next.expiresIn * 1000,
+      clientId: tokens.clientId,
+    }
+    await store.save(refreshed) // single atomic write (rotated refresh persisted with access)
+    await mountMcp(ctx, refreshed.accessToken, config, slot)
+  } finally {
+    refreshMutex.running = false
+  }
+}
+
+async function runLogin(ctx: Context, store: NotionTokenStore, config: Cfg, slot: { child?: Fiber }): Promise<void> {
+  const redirectBase = `http://127.0.0.1:${config.port}/callback`
+  const disc = await discoverOAuth(config.mcpUrl)
+  const { clientId } = await registerClient(disc.registrationEndpoint, [redirectBase])
+  const verifier = generateVerifier()
+  const state = generateState()
+  const authorizeUrl = buildAuthorizeUrl(disc.authorizationEndpoint, {
+    clientId,
+    redirectUri: redirectBase,
+    state,
+    codeChallenge: computeChallenge(verifier),
+  })
+  ctx.logger.info(`[dsh-notion] open this URL to authorize Notion:\n${authorizeUrl}`)
+  const { wait } = await startLoginServer(state, config.port)
+  const cb = await wait
+  const tokens = await exchangeCode(disc.tokenEndpoint, {
+    clientId, code: cb.code, redirectUri: redirectBase, codeVerifier: verifier,
+  })
+  const stored: NotionTokens = {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken!,
+    expiresAt: Date.now() + tokens.expiresIn * 1000,
+    clientId,
+  }
+  await store.save(stored)
+  await mountMcp(ctx, stored.accessToken, config, slot)
+  ctx.logger.info('[dsh-notion] authorized — Notion tools now available as mcp__notion__*')
+}
+
+export function apply(ctx: Context, config: Cfg): void {
+  const store = new NotionTokenStore(ctx.credentials)
+  const slot: { child?: Fiber } = {}
+  const refreshMutex = { running: false }
+
+  // 启动时：有 token 直接挂载；过期则静默刷新；无 token 则提示。
+  void (async () => {
+    const tokens = await store.load()
+    if (!tokens) {
+      ctx.logger.info('[dsh-notion] not authorized — run `dsh notion login`')
+      return
+    }
+    if (tokens.expiresAt > Date.now() + 60_000) {
+      await mountMcp(ctx, tokens.accessToken, config, slot)
+      scheduleRefresh(ctx, store, config, slot, refreshMutex, tokens.expiresAt)
+    } else {
+      await refreshAndMount(ctx, store, config, slot, refreshMutex)
+      const fresh = await store.load()
+      if (fresh) scheduleRefresh(ctx, store, config, slot, refreshMutex, fresh.expiresAt)
+    }
+  })().catch((e) => ctx.logger.error(e))
+
+  // 登录命令
+  const program = new Command()
+  program
+    .command('notion')
+    .command('login')
+    .description('Authorize Notion via the official MCP OAuth flow')
+    .action(() => {
+      void runLogin(ctx, store, config, slot)
+        .then(() => ctx.appExit?.(0))
+        .catch((e) => { ctx.logger.error(e); ctx.appExit?.(1) })
+    })
+  parseCmdline(ctx, program)
+
+  // 卸载时关闭子 mcp-client。cordis 4.0.1 用 `ctx.effect(() => disposer)` 做清理，
+  // 不是 `ctx.on('dispose')`。
+  ctx.effect(() => () => { void slot.child?.dispose() })
+}
+
+function scheduleRefresh(
+  ctx: Context,
+  store: NotionTokenStore,
+  config: Cfg,
+  slot: { child?: Fiber },
+  refreshMutex: { running: boolean },
+  expiresAt: number,
+): void {
+  const delay = Math.max(60_000, expiresAt - Date.now() - 5 * 60_000) // 到期前 5 分钟
+  // 用 Node 全局 setTimeout（cordis 4.0.1 无 `ctx.setTimeout`）；定时器经 `ctx.effect` 在卸载时清理。
+  const timer = setTimeout(() => {
+    void refreshAndMount(ctx, store, config, slot, refreshMutex).then(() => {
+      void store.load().then((t) => { if (t) scheduleRefresh(ctx, store, config, slot, refreshMutex, t.expiresAt) })
+    })
+  }, delay)
+  ctx.effect(() => () => clearTimeout(timer))
+}
