@@ -514,7 +514,7 @@ git commit -m "feat(oauth): code exchange, refresh, invalid_grant terminal error
 - Test: `tests/notion-token-store.spec.ts`
 
 **Interfaces:**
-- Consumes: `import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'`（类型层面：`resolve`/`set`/`unset`，与 dsh 的 `ctx.credentials` 形状一致）
+- Consumes: `import { credentialRef } from '@deepseek-ai/dsh-credentials'`（该函数在已发布 `0.0.1-rc.1` 与本地 `0.1.0-rc.5` 均导出）；自定义结构接口 `CredentialStore` 描述 `ctx.credentials` 的 `resolve`/`set`/`unset` 形状（避开已发布版类名 `Credentials` 与本地版 `CredentialProvider` 的差异）
 - Produces:
   - `interface NotionTokens { accessToken: string; refreshToken: string; expiresAt: number; clientId: string }`
   - `class NotionTokenStore { constructor(credentials: CredentialProvider); load(): Promise<NotionTokens | undefined>; save(t: NotionTokens): Promise<void>; clear(): Promise<void> }`
@@ -566,7 +566,7 @@ Expected: FAIL（模块不存在）。
 
 ```ts
 // src/notion-token-store.ts
-import { credentialRef, type CredentialProvider } from '@deepseek-ai/dsh-credentials'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
 
 const REF = credentialRef('NOTION_OAUTH')
 
@@ -577,8 +577,18 @@ export interface NotionTokens {
   clientId: string
 }
 
+/**
+ * Structural view of dsh's credential seam, so the store binds to neither the
+ * published (`Credentials`) nor local (`CredentialProvider`) class name.
+ */
+export interface CredentialStore {
+  resolve(ref: unknown): Promise<{ value: string } | undefined>
+  set(ref: unknown, value: string): Promise<void>
+  unset(ref: unknown): Promise<void>
+}
+
 export class NotionTokenStore {
-  constructor(private credentials: CredentialProvider) {}
+  constructor(private credentials: CredentialStore) {}
 
   async load(): Promise<NotionTokens | undefined> {
     const resolved = await this.credentials.resolve(REF)
