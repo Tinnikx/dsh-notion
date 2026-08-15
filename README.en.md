@@ -1,4 +1,4 @@
-# dsh-notion
+# dsh-notion-mcp
 
 Connect [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (`dsh`) to [Notion](https://www.notion.com) through the official Notion MCP server, using OAuth 2.0 (authorization code + PKCE). After a one-time browser authorization, your `dsh` agent can search, read, and write Notion pages, databases, and comments through the standard `mcp__notion__*` tools.
 
@@ -37,7 +37,7 @@ On startup the plugin loads the stored tokens and mounts the MCP client; as they
 ## Install
 
 ```sh
-dsh plugin --profile web add dsh-notion
+dsh plugin --profile web add dsh-notion-mcp
 ```
 
 Replace `web` with whichever profile you run the agent in (`web`, `headless`, `tui`, …).
@@ -47,7 +47,7 @@ Replace `web` with whichever profile you run the agent in (`web`, `headless`, `t
 The `notion` command runs in a minimal profile — a UI app such as `web` owns its own command line and does not forward `notion` to the plugin. Tokens are stored globally, so authorize once from a minimal profile and every profile that has the plugin installed picks it up:
 
 ```sh
-dsh plugin --profile notion add dsh-notion
+dsh plugin --profile notion add dsh-notion-mcp
 dsh --profile notion notion login
 ```
 
@@ -58,7 +58,7 @@ After authorization, Notion tools are available under `mcp__notion__*`.
 ## Uninstall
 
 ```sh
-dsh plugin --profile web remove dsh-notion
+dsh plugin --profile web remove dsh-notion-mcp
 ```
 
 ## Configuration

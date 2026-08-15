@@ -1,4 +1,4 @@
-# dsh-notion
+# dsh-notion-mcp
 
 通过官方 Notion MCP 服务器，用 OAuth 2.0（授权码 + PKCE）把 [DeepSeek Harness](https://github.com/deepseek-ai/dsh)（`dsh`）连接到 [Notion](https://www.notion.com)。完成一次性浏览器授权后，你的 `dsh` agent 就能通过标准的 `mcp__notion__*` 工具搜索、读取和写入 Notion 的页面、数据库与评论。
 
@@ -8,7 +8,7 @@
 
 ## 它能帮你做什么
 
-装上 `dsh-notion` 后，你的 `dsh` agent 即可直接读写 Notion。你只需要在浏览器里完成一次授权，剩下的事插件都会自动打理：跑完整套 OAuth 2.0（授权码 + PKCE）流程、把 token 安全保存到 dsh 的凭据层、在后台静默刷新保持有效，并把 Notion 的搜索、页面、数据库、评论等工具以 `mcp__notion__*` 的形式挂载给 agent。
+装上 `dsh-notion-mcp` 后，你的 `dsh` agent 即可直接读写 Notion。你只需要在浏览器里完成一次授权，剩下的事插件都会自动打理：跑完整套 OAuth 2.0（授权码 + PKCE）流程、把 token 安全保存到 dsh 的凭据层、在后台静默刷新保持有效，并把 Notion 的搜索、页面、数据库、评论等工具以 `mcp__notion__*` 的形式挂载给 agent。
 
 ## 特性
 
@@ -37,7 +37,7 @@ token 落盘 → Notion MCP 挂载为 mcp__notion__*
 ## 安装
 
 ```sh
-dsh plugin --profile web add dsh-notion
+dsh plugin --profile web add dsh-notion-mcp
 ```
 
 把 `web` 换成你运行 agent 所用的 profile（`web`、`headless`、`tui` 等）。
@@ -47,7 +47,7 @@ dsh plugin --profile web add dsh-notion
 `notion` 命令需要在一个「最小 profile」里运行——像 `web` 这类 UI app 会独占自己的命令行，不会把 `notion` 转发给插件。token 是全局存储的，所以在任意最小 profile 里授权一次，所有安装了本插件的 profile 都能直接使用：
 
 ```sh
-dsh plugin --profile notion add dsh-notion
+dsh plugin --profile notion add dsh-notion-mcp
 dsh --profile notion notion login
 ```
 
@@ -58,7 +58,7 @@ dsh --profile notion notion login
 ## 卸载
 
 ```sh
-dsh plugin --profile web remove dsh-notion
+dsh plugin --profile web remove dsh-notion-mcp
 ```
 
 ## 配置

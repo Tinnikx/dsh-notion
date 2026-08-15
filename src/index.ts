@@ -66,7 +66,7 @@ async function refreshAndMount(
       if (e instanceof InvalidGrantError) {
         await store.clear()
         await unmount(slot)
-        console.error('[dsh-notion] invalid_grant: run `dsh notion login` to re-authorize')
+        console.error('[dsh-notion-mcp] invalid_grant: run `dsh notion login` to re-authorize')
         return
       }
       throw e
@@ -97,7 +97,7 @@ async function runLogin(ctx: Context, store: NotionTokenStore, config: Cfg, slot
     codeChallenge: computeChallenge(verifier),
   })
   // 直接写终端：`dsh notion login` 这个 CLI 子命令下 ctx.logger 只进内存缓冲区，不落终端。
-  console.log(`[dsh-notion] open this URL to authorize Notion:\n${authorizeUrl}`)
+  console.log(`[dsh-notion-mcp] open this URL to authorize Notion:\n${authorizeUrl}`)
   const { wait } = await startLoginServer(state, config.port)
   const cb = await wait
   const tokens = await exchangeCode(disc.tokenEndpoint, {
@@ -114,7 +114,7 @@ async function runLogin(ctx: Context, store: NotionTokenStore, config: Cfg, slot
   }
   await store.save(stored)
   await mountMcp(ctx, stored.accessToken, config, slot)
-  console.log('[dsh-notion] authorized — Notion tools now available as mcp__notion__*')
+  console.log('[dsh-notion-mcp] authorized — Notion tools now available as mcp__notion__*')
 }
 
 export function apply(ctx: Context, config: Cfg): void {
@@ -130,7 +130,7 @@ export function apply(ctx: Context, config: Cfg): void {
     void (async () => {
       const tokens = await store.load()
       if (!tokens) {
-        console.error('[dsh-notion] not authorized — run `dsh notion login`')
+        console.error('[dsh-notion-mcp] not authorized — run `dsh notion login`')
         return
       }
       if (tokens.expiresAt > Date.now() + 60_000) {

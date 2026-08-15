@@ -49,7 +49,7 @@ export async function registerClient(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_name: 'dsh-notion',
+      client_name: 'dsh-notion-mcp',
       redirect_uris: redirectUris,
       token_endpoint_auth_method: 'none',
       grant_types: ['authorization_code', 'refresh_token'],
