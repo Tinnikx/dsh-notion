@@ -486,12 +486,10 @@ export async function refreshAccessToken(
       refresh_token: opts.refreshToken,
     }),
   })
-  if (res.status === 400) {
-    const body = await res.json().catch(() => ({}))
-    if (body.error === 'invalid_grant') throw new InvalidGrantError()
-  }
+  const body = await res.json().catch(() => ({}))
+  if (body.error === 'invalid_grant') throw new InvalidGrantError()
   if (!res.ok) throw new Error(`refresh failed: HTTP ${res.status}`)
-  return parseTokenBody(await res.json())
+  return parseTokenBody(body)
 }
 ```
 
