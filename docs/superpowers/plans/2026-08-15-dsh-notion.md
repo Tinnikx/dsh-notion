@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - 包名 / 仓库名：`dsh-notion`；`package.json` 必须声明 `"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }`。
-- 官方 `@deepseek-ai/*` 包一律用 `peerDependencies`，不得进 `dependencies`（唯一例外是 dev/test 依赖）。运行时不引入第三方依赖（`node:` 内置 + `@deepseek-ai/*` peer + commander via dsh-cmdline）。
+- 官方 `@deepseek-ai/*` 包一律用 `peerDependencies`，不得进 `dependencies`（唯一例外是 dev/test 依赖）。运行时仅 `node:` 内置 + `@deepseek-ai/*` peer + `commander`（插件自带一份供 CLI 命令，版本 `^15.0.0`，作为 `dependencies`；dsh-cmdline 不依赖 commander，由调用方提供）。
 - 回调地址固定 `http://127.0.0.1:53007/callback`，默认端口 `53007`（可通过 plugin config 覆盖；`127.0.0.1` 而非 `localhost`）。
 - MCP 服务器 URL 默认 `https://mcp.notion.com/mcp`；`serverName` 固定 `notion`（→ 工具名 `mcp__notion__*`）。
 - token 生命周期：access ~8h（以响应 `expires_in` 为准，不写死）；refresh token 每次刷新轮换；180 天绝对上限 / 30 天不活动即 `invalid_grant`。`invalid_grant` 为**终态，绝不重试**。
@@ -796,10 +796,11 @@ export function apply(ctx: Context, config: Cfg): void {
 }
 ```
 
-- [ ] **Step 2: 类型检查**
+- [ ] **Step 2: 加 commander 依赖并类型检查**
 
+`commander` 是插件 CLI 命令的运行时依赖，须作为 `dependencies`（不是 dev/peer）。先 `npm i commander@^15.0.0`，再：
 Run: `npm run typecheck`
-Expected: 通过。若 `commander` 未被 dsh-cmdline 透传，则 `npm i -D commander`（commander 作为运行时 peer，从 dsh 解析）。
+Expected: 通过（`import { Command } from 'commander'` 可解析）。若 `15.0.0` 不存在则用最新 15.x。
 
 - [ ] **Step 3: 实现 token 解析 + 挂载 + 刷新 + 登录，替换 apply**
 
