@@ -16,8 +16,8 @@
 
 - dsh 内置 MCP 客户端 `@deepseek-ai/dsh-mcp-client`，支持 `stdio` 与 `streamable-http` 两种传输，但**只支持静态 `headers` 认证**，无 OAuth。
 - Notion MCP（`https://mcp.notion.com/mcp`）是 `streamable-http` 服务，**只支持 OAuth 授权码 + PKCE**；官方 FAQ 明确"暂不支持非交互授权"。旧的 bearer-token 版 `notion-mcp-server` 已停维护。
-- Notion OAuth 的 public 客户端**不需要 client_secret**，故开源仓库里只需嵌入 `client_id`（公开值）。
-- OAuth 端点：`https://api.notion.com/v1/oauth/authorize` 与 `https://api.notion.com/v1/oauth/token`。
+- Notion MCP 的 OAuth 使用**动态客户端注册（DCR，RFC 7591）**：客户端运行时自行注册拿到 `client_id`，`token_endpoint_auth_method: none`（public 客户端）——**无需预先注册，仓库里不嵌入任何 secret 或 client_id**。
+- OAuth 端点**动态发现**：先从 `https://mcp.notion.com/mcp/.well-known/oauth-protected-resource`（RFC 9470）拿 `authorization_servers`，再拉 `{authServer}/.well-known/oauth-authorization-server`（RFC 8414）拿 `authorization_endpoint` / `token_endpoint`。
 - `localhost` 回调 Notion 接受，但建议用 `127.0.0.1`；`redirect_uri` 必须与 Notion 后台注册的完全一致（含端口）。
 - MCP 客户端需走 `.well-known/oauth-*` 的 OAuth 发现；`@modelcontextprotocol/sdk` 内置 OAuth 支持。
 
@@ -41,7 +41,7 @@
 
 | 模块 | 职责 |
 |---|---|
-| `notion-oauth.ts` | 纯函数：PKCE S256（verifier/challenge）、state 生成、authorize URL 构造、code→token 交换、refresh_token 刷新。无副作用、可单测 |
+| `notion-oauth.ts` | 纯函数：OAuth 发现（RFC 9470/8414）、DCR 注册（RFC 7591）、PKCE S256（verifier/challenge）、state 生成、authorize URL 构造、code→token 交换、refresh_token 刷新（含轮换）。无副作用、可单测 |
 | `notion-token-store.ts` | 经 `ctx.credentials` 读写 token（`NOTION_ACCESS_TOKEN` / `NOTION_REFRESH_TOKEN` / `NOTION_TOKEN_EXPIRES_AT`），借用 credentials-local 的 0600 权限 + 原子写 |
 | `login-server.ts` | 登录命令的运行时：起一个 `127.0.0.1:53007` 的临时 HTTP 服务，打印/打开 authorize URL，收到回调后校验 state、交换 token、落盘、关闭 |
 | `index.ts`（插件本体，Service 类） | 编排：启动时解析 token→挂载 mcp-client；注册 `dsh notion login` 命令；调度到期刷新 |
@@ -73,7 +73,7 @@ ctx.plugin(mcpClientModule, {
 ### 5.2 登录（dsh notion login）
 
 ```
-生成 PKCE verifier/challenge + state → 起本地回调服务
+OAuth 发现 → DCR 注册 → 生成 PKCE verifier/challenge + state → 起本地回调服务
 → 打印 authorize URL（用户浏览器点授权）
 → Notion 回调 /callback?code&state → 校验 state → 用 code+verifier 换 token
 → 存 token store → 挂载/刷新 mcp-client → 关闭回调服务
@@ -83,7 +83,9 @@ ctx.plugin(mcpClientModule, {
 
 ## 6. token 刷新
 
-Notion access token 约 1 小时过期。插件在到期前静默用 refresh_token 换新，然后**卸载重挂** mcp-client（`ctx.dispose` 子插件 → 用新 token 重新 `ctx.plugin`）。亚秒级工具缺失，可接受。
+Notion access token 约 8 小时过期（以响应的 `expires_in` 为准，不写死）。插件在到期前静默用 refresh_token 换新，然后**卸载重挂** mcp-client（`ctx.dispose` 子插件 → 用新 token 重新 `ctx.plugin`）。亚秒级工具缺失，可接受。
+
+刷新 token 每次刷新都会**轮换**（返回新 refresh_token、作废旧 token）：刷新必须串行化（互斥锁）并原子持久化。refresh_token 有 180 天绝对上限或 30 天不活动即失效；届时返回 `invalid_grant`，为**终态**——绝不重试（重放已轮换的 token 会被当作盗用信号、吊销整个授权），只能让用户重新 `login`。
 
 ## 7. 错误处理
 
@@ -93,6 +95,7 @@ Notion access token 约 1 小时过期。插件在到期前静默用 refresh_tok
 | `redirect_uri` 不匹配（Notion 精确匹配） | 报错并提示检查注册端口 |
 | 回调端口被占 | 明确报错（Notion 要求固定注册端口，不静默换端口） |
 | refresh 失败（refresh_token 被吊销） | 卸载工具 + 提示重新 `login` |
+| `invalid_grant`（refresh_token 过期/轮换丢失） | **终态，不重试**：卸载工具 + 提示重新 `login` |
 | mcp-client 初次连接失败 | `failOnStartupError: false`（默认），插件照常激活、日志报错、走重连 |
 
 ## 8. 测试
@@ -126,7 +129,7 @@ Notion access token 约 1 小时过期。插件在到期前静默用 refresh_tok
 
 ## 11. 前置条件（用户需手动完成）
 
-在 Notion 开发者后台注册 **Public integration**，拿到 `client_id`，并把 `http://127.0.0.1:53007/callback` 注册进 OAuth URIs。`client_id` 写进插件，不需要 client_secret。回调端口默认 `53007`（高位少见端口），必须与 Notion 后台注册的完全一致；如需更换端口，须同时在插件配置与 Notion 后台同步修改。
+无需在 Notion 后台手动注册——插件通过动态客户端注册（DCR）在运行时自行注册。回调地址 `http://127.0.0.1:53007/callback` 由插件在 DCR 时声明（默认端口 `53007`，高位少见端口；如需更换，改插件配置即可，无需手动改 Notion 后台）。
 
 ## 12. 已确认的关键决策
 
