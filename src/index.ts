@@ -66,7 +66,7 @@ async function refreshAndMount(
       if (e instanceof InvalidGrantError) {
         await store.clear()
         await unmount(slot)
-        ctx.logger.error('[dsh-notion] invalid_grant: run `dsh notion login` to re-authorize')
+        console.error('[dsh-notion] invalid_grant: run `dsh notion login` to re-authorize')
         return
       }
       throw e
@@ -96,7 +96,8 @@ async function runLogin(ctx: Context, store: NotionTokenStore, config: Cfg, slot
     state,
     codeChallenge: computeChallenge(verifier),
   })
-  ctx.logger.info(`[dsh-notion] open this URL to authorize Notion:\n${authorizeUrl}`)
+  // 直接写终端：`dsh notion login` 这个 CLI 子命令下 ctx.logger 只进内存缓冲区，不落终端。
+  console.log(`[dsh-notion] open this URL to authorize Notion:\n${authorizeUrl}`)
   const { wait } = await startLoginServer(state, config.port)
   const cb = await wait
   const tokens = await exchangeCode(disc.tokenEndpoint, {
@@ -113,47 +114,55 @@ async function runLogin(ctx: Context, store: NotionTokenStore, config: Cfg, slot
   }
   await store.save(stored)
   await mountMcp(ctx, stored.accessToken, config, slot)
-  ctx.logger.info('[dsh-notion] authorized — Notion tools now available as mcp__notion__*')
+  console.log('[dsh-notion] authorized — Notion tools now available as mcp__notion__*')
 }
 
 export function apply(ctx: Context, config: Cfg): void {
   const store = new NotionTokenStore(ctx.credentials)
   const slot: { child?: Fiber } = {}
   const refreshMutex = { running: false }
+  const isNotionCommand = (ctx.cmdlineArgs?.get() ?? [])[0] === 'notion'
 
   // 启动时：有 token 直接挂载；过期则静默刷新；无 token 则提示。
-  void (async () => {
-    const tokens = await store.load()
-    if (!tokens) {
-      ctx.logger.info('[dsh-notion] not authorized — run `dsh notion login`')
-      return
-    }
-    if (tokens.expiresAt > Date.now() + 60_000) {
-      await mountMcp(ctx, tokens.accessToken, config, slot)
-      scheduleRefresh(ctx, store, config, slot, refreshMutex, tokens.expiresAt)
-    } else {
-      await refreshAndMount(ctx, store, config, slot, refreshMutex)
-      const fresh = await store.load()
-      if (fresh) scheduleRefresh(ctx, store, config, slot, refreshMutex, fresh.expiresAt)
-    }
-  })().catch((e) => {
-    // 启动时短暂失败（网络 / discovery / 存储）重试，避免插件永远不挂载。
-    ctx.logger.error(e)
-    scheduleRefresh(ctx, store, config, slot, refreshMutex, Date.now() + 60_000)
-  })
-
-  // 登录命令
-  const program = new Command()
-  program
-    .command('notion')
-    .command('login')
-    .description('Authorize Notion via the official MCP OAuth flow')
-    .action(() => {
-      void runLogin(ctx, store, config, slot)
-        .then(() => ctx.appExit?.(0))
-        .catch((e) => { ctx.logger.error(e); ctx.appExit?.(1) })
+  // 仅在 agent 常驻（web/headless 等）时挂载；notion 命令（login/--help）是短命进程，
+  // 会调用 appExit 触发 dispose，异步挂载会踩到 inactive context。
+  if (!isNotionCommand) {
+    void (async () => {
+      const tokens = await store.load()
+      if (!tokens) {
+        console.error('[dsh-notion] not authorized — run `dsh notion login`')
+        return
+      }
+      if (tokens.expiresAt > Date.now() + 60_000) {
+        await mountMcp(ctx, tokens.accessToken, config, slot)
+        scheduleRefresh(ctx, store, config, slot, refreshMutex, tokens.expiresAt)
+      } else {
+        await refreshAndMount(ctx, store, config, slot, refreshMutex)
+        const fresh = await store.load()
+        if (fresh) scheduleRefresh(ctx, store, config, slot, refreshMutex, fresh.expiresAt)
+      }
+    })().catch((e) => {
+      // 启动时短暂失败（网络 / discovery / 存储）重试，避免插件永远不挂载。
+      console.error(e)
+      scheduleRefresh(ctx, store, config, slot, refreshMutex, Date.now() + 60_000)
     })
-  parseCmdline(ctx, program)
+  }
+
+  // 登录命令：只有当本次调用就是 `dsh ... notion ...` 时才接管命令行解析；否则（如
+  // `dsh web`）命令行归 app（web/headless）所有。
+  if (isNotionCommand) {
+    const program = new Command()
+    program
+      .command('notion')
+      .command('login')
+      .description('Authorize Notion via the official MCP OAuth flow')
+      .action(() => {
+        void runLogin(ctx, store, config, slot)
+          .then(() => ctx.appExit?.(0))
+          .catch((e) => { console.error(e); ctx.appExit?.(1) })
+      })
+    parseCmdline(ctx, program)
+  }
 
   // 卸载时关闭子 mcp-client。cordis 4.0.1 用 `ctx.effect(() => disposer)` 做清理，
   // 不是 `ctx.on('dispose')`。
@@ -177,7 +186,7 @@ function scheduleRefresh(
       .catch((e) => {
         // 短暂失败（网络 / discovery / 存储）重试，避免刷新循环就此停止。
         // invalid_grant 由 refreshAndMount 内部清 token 并 resolve，不会走到这里。
-        ctx.logger.error(e)
+        console.error(e)
         scheduleRefresh(ctx, store, config, slot, refreshMutex, Date.now() + 60_000)
       })
   }, delay)
