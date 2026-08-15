@@ -59,3 +59,75 @@ export async function registerClient(
   const body = await res.json()
   return { clientId: body.client_id }
 }
+
+export class InvalidGrantError extends Error {
+  constructor() { super('invalid_grant: refresh token expired or rotated away — re-authorize required') }
+}
+
+export interface TokenResponse {
+  accessToken: string
+  refreshToken?: string
+  expiresIn: number
+  identity?: { userId: string; workspaceId: string }
+}
+
+export function buildAuthorizeUrl(
+  authorizationEndpoint: string,
+  opts: { clientId: string; redirectUri: string; state: string; codeChallenge: string },
+): string {
+  const url = new URL(authorizationEndpoint)
+  url.searchParams.set('response_type', 'code')
+  url.searchParams.set('client_id', opts.clientId)
+  url.searchParams.set('redirect_uri', opts.redirectUri)
+  url.searchParams.set('state', opts.state)
+  url.searchParams.set('code_challenge', opts.codeChallenge)
+  url.searchParams.set('code_challenge_method', 'S256')
+  return url.toString()
+}
+
+function parseTokenBody(body: any): TokenResponse {
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token,
+    expiresIn: body.expires_in,
+    identity: body.user_id ? { userId: body.user_id, workspaceId: body.workspace_id } : undefined,
+  }
+}
+
+export async function exchangeCode(
+  tokenEndpoint: string,
+  opts: { clientId: string; code: string; redirectUri: string; codeVerifier: string },
+): Promise<TokenResponse> {
+  const res = await fetch(tokenEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: opts.clientId,
+      code: opts.code,
+      redirect_uri: opts.redirectUri,
+      code_verifier: opts.codeVerifier,
+    }),
+  })
+  if (!res.ok) throw new Error(`token exchange failed: HTTP ${res.status}`)
+  return parseTokenBody(await res.json())
+}
+
+export async function refreshAccessToken(
+  tokenEndpoint: string,
+  opts: { clientId: string; refreshToken: string },
+): Promise<TokenResponse> {
+  const res = await fetch(tokenEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: opts.clientId,
+      refresh_token: opts.refreshToken,
+    }),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (body.error === 'invalid_grant') throw new InvalidGrantError()
+  if (!res.ok) throw new Error(`refresh failed: HTTP ${res.status}`)
+  return parseTokenBody(body)
+}

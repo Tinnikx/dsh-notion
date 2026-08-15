@@ -3,6 +3,7 @@ import { base64url, generateVerifier, computeChallenge, generateState } from '..
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { discoverOAuth, registerClient } from '../src/notion-oauth.js'
+import { buildAuthorizeUrl, exchangeCode, refreshAccessToken, InvalidGrantError } from '../src/notion-oauth.js'
 
 describe('PKCE', () => {
   it('verifier is 43 chars of url-safe base64url', () => {
@@ -58,5 +59,38 @@ it('registerClient posts DCR params and returns client_id', async () => {
   })
   const { clientId } = await registerClient(`${baseUrl}/register`, ['http://127.0.0.1:53007/callback'])
   expect(clientId).toBe('cid-123')
+  server.close()
+})
+
+it('buildAuthorizeUrl sets PKCE + state params', () => {
+  const u = new URL(buildAuthorizeUrl('https://auth.example/authorize', {
+    clientId: 'cid', redirectUri: 'http://127.0.0.1:53007/callback', state: 'st', codeChallenge: 'ch',
+  }))
+  expect(u.searchParams.get('response_type')).toBe('code')
+  expect(u.searchParams.get('code_challenge_method')).toBe('S256')
+  expect(u.searchParams.get('code_challenge')).toBe('ch')
+  expect(u.searchParams.get('state')).toBe('st')
+})
+
+it('exchangeCode posts form-encoded and returns tokens', async () => {
+  const { server, baseUrl } = await withServer({
+    '/token': () => ({ access_token: 'at', refresh_token: 'rt', expires_in: 28800, user_id: 'u1', workspace_id: 'w1' }),
+  })
+  const t = await exchangeCode(`${baseUrl}/token`, {
+    clientId: 'cid', code: 'code', redirectUri: 'http://127.0.0.1:53007/callback', codeVerifier: 'v',
+  })
+  expect(t.accessToken).toBe('at')
+  expect(t.refreshToken).toBe('rt')
+  expect(t.expiresIn).toBe(28800)
+  expect(t.identity).toEqual({ userId: 'u1', workspaceId: 'w1' })
+  server.close()
+})
+
+it('refreshAccessToken maps invalid_grant to InvalidGrantError', async () => {
+  const { server, baseUrl } = await withServer({
+    '/token': () => ({ error: 'invalid_grant' }),
+  })
+  await expect(refreshAccessToken(`${baseUrl}/token`, { clientId: 'cid', refreshToken: 'rt' }))
+    .rejects.toBeInstanceOf(InvalidGrantError)
   server.close()
 })
