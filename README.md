@@ -18,6 +18,16 @@
 - **`invalid_grant` 终态处理** —— 过期或已被轮换作废的 refresh token 绝不重试；插件会清掉它并提示你重新授权。
 - **仓库不含任何密钥** —— token 存在 dsh 的凭据存储里，不进入本仓库。
 
+## 截图
+
+让 `dsh` agent 总结一段技术架构并写入 Notion：
+
+![dsh 里请求写入 Notion](./docs/screenshots/dsh-notion-sc1.png)
+
+写好的 Notion 页面：
+
+![写入后的 Notion 页面](./docs/screenshots/dsh-notion-sc2.png)
+
 ## 工作原理
 
 ```text

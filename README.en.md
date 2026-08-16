@@ -18,6 +18,16 @@ Once installed, your `dsh` agent can read and write Notion directly. You authori
 - **Terminal `invalid_grant` handling** — an expired or rotated-away refresh token is never retried; the plugin clears it and asks you to re-authorize.
 - **No secrets in the repo** — tokens live in dsh's credential store, not in this repository.
 
+## Screenshots
+
+Ask the `dsh` agent to summarize a technical architecture and write it into Notion:
+
+![dsh request to write into Notion](./docs/screenshots/dsh-notion-sc1.png)
+
+The resulting Notion page:
+
+![Resulting Notion page](./docs/screenshots/dsh-notion-sc2.png)
+
 ## How it works
 
 ```text
