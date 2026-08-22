@@ -86,7 +86,7 @@ dsh plugin --profile web remove dsh-notion-mcp
 
 ## 环境要求
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/dsh)（`dsh`）
+- [DeepSeek Harness](https://github.com/deepseek-ai/dsh)（`dsh`）—— 已验证兼容 `v0.1.0-rc.8`、`v0.1.1-rc.1`、`v0.1.1-rc.2`
 - Node.js ≥ 22.12.0
 
 ## 开发
