@@ -2,7 +2,7 @@
 
 Connect [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (`dsh`) to [Notion](https://www.notion.com) through the official Notion MCP server, using OAuth 2.0 (authorization code + PKCE). After a one-time browser authorization, your `dsh` agent can search, read, and write Notion pages, databases, and comments through the standard `mcp__notion__*` tools.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Node: >=22.12.0](https://img.shields.io/badge/Node-%3E%3D22.12.0-339933.svg)](https://nodejs.org) [![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Node: 22.19%2B%20or%2024%2B](https://img.shields.io/badge/Node-22.19%2B%20or%2024%2B-339933.svg)](https://nodejs.org) [![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
 [中文](README.md) | English
 
@@ -86,8 +86,8 @@ dsh plugin --profile web remove dsh-notion-mcp
 
 ## Requirements
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (`dsh`) — verified compatible with `v0.1.0-rc.8`, `v0.1.1-rc.1`, and `v0.1.1-rc.2`
-- Node.js ≥ 22.12.0
+- [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (`dsh`) — verified compatible with `v0.1.0-rc.8`, `v0.1.1-rc.1`, `v0.1.1-rc.2`, and `v0.1.2-alpha.1`
+- Node.js `^22.19.0` or `>=24.0.0` (matching dsh `v0.1.2-alpha.1`; Node 23 is outside the supported range)
 
 ## Development
 
