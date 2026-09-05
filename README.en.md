@@ -53,7 +53,7 @@ On startup the plugin loads the stored tokens and mounts the MCP client; as they
 ## Install
 
 ```sh
-dsh plugin --profile web add dsh-notion-mcp
+dsh plugin --profile web add github:Tinnikx/dsh-notion
 ```
 
 Replace `web` with whichever profile you run the agent in (`web`, `headless`, `tui`, …).
@@ -67,7 +67,7 @@ You can start authorization from either entry point (both run the same OAuth flo
 The `notion` command runs in a minimal profile — a UI app such as `web` owns its own command line and does not forward `notion` to the plugin. Tokens are stored globally, so authorize once from a minimal profile and every profile that has the plugin installed picks it up:
 
 ```sh
-dsh plugin --profile notion add dsh-notion-mcp
+dsh plugin --profile notion add github:Tinnikx/dsh-notion
 dsh --profile notion notion login
 ```
 
@@ -91,7 +91,7 @@ After Method B authorization, Notion tools are available under `mcp__notion__*` 
 ## Uninstall
 
 ```sh
-dsh plugin --profile web remove dsh-notion-mcp
+dsh plugin --profile web remove @Tinnikx/dsh-notion-mcp
 ```
 
 ## Configuration
