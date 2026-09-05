@@ -53,7 +53,7 @@ token 落盘 → Notion MCP 挂载为 mcp__notion__*
 ## 安装
 
 ```sh
-dsh plugin --profile web add dsh-notion-mcp
+dsh plugin --profile web install github:Tinnikx/dsh-notion-mcp
 ```
 
 把 `web` 换成你运行 agent 所用的 profile（`web`、`headless`、`tui` 等）。
@@ -67,7 +67,7 @@ dsh plugin --profile web add dsh-notion-mcp
 `notion` 命令需要在一个「最小 profile」里运行——像 `web` 这类 UI app 会独占自己的命令行，不会把 `notion` 转发给插件。token 是全局存储的，所以在任意最小 profile 里授权一次，所有安装了本插件的 profile 都能直接使用：
 
 ```sh
-dsh plugin --profile notion add dsh-notion-mcp
+dsh plugin --profile notion add github:Tinnikx/dsh-notion-mcp
 dsh --profile notion notion login
 ```
 授权完成后，Notion 工具即以 `mcp__notion__*` 形式可用。
@@ -90,7 +90,7 @@ dsh --profile notion notion login
 ## 卸载
 
 ```sh
-dsh plugin --profile web remove dsh-notion-mcp
+dsh plugin --profile web remove @Tinnikx/dsh-notion-mcp
 ```
 
 ## 配置
