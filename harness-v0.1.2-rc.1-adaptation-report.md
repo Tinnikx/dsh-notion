@@ -65,11 +65,11 @@ manifest.dependencies = { [PLUGIN_NAME]: `link:${REPO}` }
 ```bash
 $ PATH=$HOME/.dsh/desktop-bin/node-shim:$PATH node scripts/test-stack.mjs up
 [test-stack] 副本已同步：.../tmp/dsh-notion-test-home
-[test-stack] 插件软链已重写：.../@Tinnikx/dsh-notion-mcp -> .../dsh-notion
+[test-stack] 插件软链已重写：.../dsh-notion-mcp -> .../dsh-notion
 [test-stack] 清理断链：dsh-operation-improve
 [test-stack] 清理断链：git
 [test-stack] 清理了 2 个断链
-[test-stack] profile manifest 已修正：仅保留内置 bundles + @Tinnikx/dsh-notion-mcp
+[test-stack] profile manifest 已修正：仅保留内置 bundles + dsh-notion-mcp
 [test-stack] harness 启动中：pid=14 port=3182 DSH_HOME=.../tmp/dsh-notion-test-home
 [test-stack] harness 就绪：http://127.0.0.1:3182/ 插件已加载=true
 

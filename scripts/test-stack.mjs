@@ -18,7 +18,6 @@
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -30,7 +29,7 @@ const HARNESS_PORT = 3182
 const PAGE_URL = `http://127.0.0.1:${HARNESS_PORT}/`
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
-const PLUGIN_NAME = '@Tinnikx/dsh-notion-mcp'
+const PLUGIN_NAME = 'dsh-notion-mcp'
 const REAL_HOME = join(homedir(), '.dsh')
 const TEST_HOME = join(REPO, 'tmp/dsh-notion-test-home')
 const STATE_DIR = join(REPO, 'tmp/dsh-notion-stack')
@@ -179,10 +178,10 @@ function cleanBrokenLinks() {
     }
   }
 
-  // 检查 scope 目录下的软链（排除 @Tinnikx）
+  // 检查 scope 目录下的软链
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue
-    if (entry.name.startsWith('@') && entry.name !== '@Tinnikx') {
+    if (entry.name.startsWith('@')) {
       const scopeDir = join(modules, entry.name)
       try {
         const subEntries = readdirSync(scopeDir, { withFileTypes: true })
@@ -208,13 +207,9 @@ function cleanBrokenLinks() {
  */
 function relinkPlugin() {
   const modules = join(TEST_HOME, 'profiles/web/node_modules')
-  // 清理可能残留的旧名
-  rmSync(join(modules, 'dsh-notion-mcp'), { force: true })
+  mkdirSync(modules, { recursive: true })
 
-  const scopedModules = join(modules, '@Tinnikx')
-  mkdirSync(scopedModules, { recursive: true })
-
-  const link = join(scopedModules, 'dsh-notion-mcp')
+  const link = join(modules, PLUGIN_NAME)
   rmSync(link, { force: true })
   symlinkSync(REPO, link)
   console.log(`[test-stack] 插件软链已重写：${link} -> ${REPO}`)
