@@ -21,7 +21,6 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "prepare": "tsdown",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "stack:up": "node scripts/test-stack.mjs up",
