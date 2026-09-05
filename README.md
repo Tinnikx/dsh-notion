@@ -114,11 +114,18 @@ dsh plugin --profile web remove @Tinnikx/dsh-notion-mcp
 ## 开发
 
 ```sh
-npm install
-npm run build      # tsdown → lib/
-npm run typecheck  # tsc --noEmit
-npm test           # vitest
+pnpm install
+pnpm run build      # tsdown → lib/
+pnpm run typecheck  # tsc --noEmit
+pnpm test           # vitest
+pnpm stack:up       # 隔离 DSH_HOME + 独立端口启动真实 harness，验证插件可加载
 ```
+
+依赖与构建基于 pnpm（仓库根 `pnpm-workspace.yaml` + `pnpm-lock.yaml`）。改依赖前先读下面的约束：
+
+- **只提交 `pnpm-lock.yaml`，不要引入 `package-lock.json`**：dsh 的 git-hosted 安装会按仓库根锁文件选择嵌套包管理器，若仓库根出现 `package-lock.json`，pnpm 会在克隆目录里执行 `npm install`，而 dsh 运行环境没有 npm，安装直接失败。
+- **`autoInstallPeers: false`（`pnpm-workspace.yaml`）不能打开**：git-hosted 安装的 prepare 会在克隆里跑 `pnpm install`，自动安装 peer 会去 registry 拉非公开的 `@deepseek-ai/*`（如 `dsh-type-meta`）导致 404。因此插件运行期需要的 `@deepseek-ai/*` 必须**显式**列在 devDependencies 中，并维护为完整闭包（21 个包，含 `dsh-mcp-client` 静态 import 的 `dsh-subprocess`、`dsh-tools`）。漏装时，harness 以 `link:` 从本仓库加载插件会报 `ERR_MODULE_NOT_FOUND`——仓库自己的 node_modules 优先于 harness 运行时的解析，缺包无法回退。
+- `pnpm-workspace.yaml` 的 `allowBuilds` 放行了 `esbuild` 的构建脚本（pnpm 11 只接受精确版本），升级依赖时同步更新该版本号。
 
 ## 许可证
 

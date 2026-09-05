@@ -29,6 +29,7 @@ export const Config = z.object({
 type Cfg = { mcpUrl: string; port: number }
 
 const LOGIN_COMMAND = 'notion-login'
+const LOGOUT_COMMAND = 'notion-logout'
 
 async function unmount(slot: { child?: Fiber }): Promise<void> {
   if (slot.child) {
@@ -106,6 +107,12 @@ function openExternalBrowser(url: string): void {
   }
 }
 
+async function runLogout(ctx: Context, store: NotionTokenStore, slot: { child?: Fiber }): Promise<void> {
+  await store.clear()
+  await unmount(slot)
+  console.log('[dsh-notion-mcp] logged out — Notion tools removed')
+}
+
 async function runLogin(ctx: Context, store: NotionTokenStore, config: Cfg, slot: { child?: Fiber }): Promise<void> {
   const redirectBase = `http://127.0.0.1:${config.port}/callback`
   const disc = await discoverOAuth(config.mcpUrl)
@@ -159,6 +166,19 @@ export function apply(ctx: Context, config: Cfg): void {
     },
   })
 
+  ctx.commands.register({
+    name: LOGOUT_COMMAND,
+    description: 'Logout from Notion and uninstall MCP tools',
+    recordInput: false,
+    handler: ({ signal }) => {
+      if (signal.aborted) {
+        return { kind: 'error', text: 'logout cancelled' }
+      }
+      void runLogout(ctx, store, slot).catch((e) => console.error(e))
+      return { kind: 'success', text: 'Notion logged out, MCP tools removed.' }
+    },
+  })
+
   // 启动时：有 token 直接挂载；过期则静默刷新；无 token 则提示。
   // 仅在 agent 常驻（web/headless 等）时挂载；notion 命令（login/--help）是短命进程，
   // 会调用 appExit 触发 dispose，异步挂载会踩到 inactive context。
@@ -188,12 +208,20 @@ export function apply(ctx: Context, config: Cfg): void {
   // `dsh web`）命令行归 app（web/headless）所有。
   if (isNotionCommand) {
     const program = new Command()
-    program
-      .command('notion')
+    const notion = program.command('notion')
+    notion
       .command('login')
       .description('Authorize Notion via the official MCP OAuth flow')
       .action(() => {
         void runLogin(ctx, store, config, slot)
+          .then(() => ctx.appExit?.(0))
+          .catch((e) => { console.error(e); ctx.appExit?.(1) })
+      })
+    notion
+      .command('logout')
+      .description('Logout from Notion and uninstall MCP tools')
+      .action(() => {
+        void runLogout(ctx, store, slot)
           .then(() => ctx.appExit?.(0))
           .catch((e) => { console.error(e); ctx.appExit?.(1) })
       })

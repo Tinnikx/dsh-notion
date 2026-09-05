@@ -115,11 +115,18 @@ dsh plugin --profile web remove @Tinnikx/dsh-notion-mcp
 ## Development
 
 ```sh
-npm install
-npm run build      # tsdown → lib/
-npm run typecheck  # tsc --noEmit
-npm test           # vitest
+pnpm install
+pnpm run build      # tsdown → lib/
+pnpm run typecheck  # tsc --noEmit
+pnpm test           # vitest
+pnpm stack:up       # boots a real harness on an isolated DSH_HOME and a non-3080 port to verify the plugin loads
 ```
+
+Dependencies and builds use pnpm (`pnpm-workspace.yaml` + `pnpm-lock.yaml` at the repo root). Read these constraints before touching dependencies:
+
+- **Commit `pnpm-lock.yaml` only; never introduce a `package-lock.json`**: dsh's git-hosted install picks the nested package manager for the clone from the repo-root lockfile. A `package-lock.json` at the root makes pnpm run `npm install` in the clone, and dsh's runtime has no npm, so the install fails outright.
+- **`autoInstallPeers: false` (in `pnpm-workspace.yaml`) must stay false**: the prepare step of a git-hosted install runs `pnpm install` inside the clone, and auto-installed peers would pull non-public `@deepseek-ai/*` packages (e.g. `dsh-type-meta`) from the registry → 404. The `@deepseek-ai/*` packages the plugin needs at runtime must therefore be listed **explicitly** in devDependencies and maintained as the full closure (21 packages, including `dsh-subprocess` and `dsh-tools`, which `dsh-mcp-client` imports statically). If one is missing, the harness fails with `ERR_MODULE_NOT_FOUND` when loading the plugin via a `link:` from this checkout — the repo's own node_modules shadows the harness runtime, so the package cannot fall back to another copy.
+- `allowBuilds` in `pnpm-workspace.yaml` allows esbuild's build script (pnpm 11 accepts exact versions only); keep that version in sync when upgrading dependencies.
 
 ## License
 
