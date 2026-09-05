@@ -1,6 +1,6 @@
 {
   "name": "@Tinnikx/dsh-notion-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect DeepSeek Harness (dsh) to Notion via the official Notion MCP (OAuth + PKCE)",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
@@ -23,19 +23,14 @@
     "build": "tsdown",
     "prepare": "tsdown",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "stack:up": "node scripts/test-stack.mjs up",
+    "stack:down": "node scripts/test-stack.mjs down",
+    "stack:status": "node scripts/test-stack.mjs status"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
-    },
-    "client": {
-      "platform": "web",
-      "inject": [
-        "@deepseek-ai/dsh-client-connection",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-settings"
-      ]
     }
   },
   "peerDependencies": {
