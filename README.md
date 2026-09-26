@@ -86,8 +86,8 @@ dsh plugin --profile web remove dsh-notion-mcp
 
 ## 环境要求
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/dsh)（`dsh`）—— 已验证兼容 `v0.1.0-rc.8`、`v0.1.1-rc.1`、`v0.1.1-rc.2`、`v0.1.2-alpha.1`
-- Node.js `^22.19.0` 或 `>=24.0.0`（与 dsh `v0.1.2-alpha.1` 一致；Node 23 不在支持范围内）
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）—— 已验证兼容 `v0.1.0-rc.8`、`v0.1.1-rc.1`、`v0.1.1-rc.2`、`v0.1.2-alpha.1`；在本地 `v0.1.7-rc.2` 源码启动的 Web profile 中，已验证 Notion MCP 工具发现与注册
+- Node.js `^22.19.0` 或 `>=24.0.0`（与 dsh `v0.1.7-rc.2` 一致；Node 23 不在支持范围内）
 
 ## 开发
 
