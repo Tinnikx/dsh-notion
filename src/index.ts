@@ -3,6 +3,9 @@ import z from '@deepseek-ai/schemastery'
 import { Command } from 'commander'
 import { spawn } from 'node:child_process'
 import { parseCmdline } from '@deepseek-ai/dsh-cmdline'
+// 类型侧：把 dsh-commands 的 `declare module '@deepseek-ai/cordis'` 增强拉进本程序的类型图，
+// 否则 ctx.commands / CommandDefinition 在 tsc 下不可见（运行期由 harness 提供该 service）。
+import type {} from '@deepseek-ai/dsh-commands'
 import * as mcpClient from '@deepseek-ai/dsh-mcp-client'
 import { NotionTokenStore, type NotionTokens } from './notion-token-store.js'
 import {

@@ -210,7 +210,8 @@ function relinkPlugin() {
   mkdirSync(modules, { recursive: true })
 
   const link = join(modules, PLUGIN_NAME)
-  rmSync(link, { force: true })
+  // 真 home 里插件可能以 github: 安装成实体目录（rsync 原样复制过来），软链和目录都要能删。
+  rmSync(link, { recursive: true, force: true })
   symlinkSync(REPO, link)
   console.log(`[test-stack] 插件软链已重写：${link} -> ${REPO}`)
 }
@@ -275,7 +276,7 @@ exec "${NODE_BIN}" --expose-internals "${harnessBin()}" --profile web --port ${H
   writeFileSync(HARNESS_PID, String(child.pid))
   console.log(`[test-stack] harness 启动中：pid=${child.pid} port=${HARNESS_PORT} DSH_HOME=${TEST_HOME}`)
 
-  for (let i = 0; i < 120; i += 1) {
+  for (let i = 0; i < 360; i += 1) {
     await sleep(500)
 
     // 先检查致命错误，快速失败
@@ -304,8 +305,8 @@ exec "${NODE_BIN}" --expose-internals "${harnessBin()}" --profile web --port ${H
       const location = cookieRes.headers.get('location') ?? '/'
       if (!setCookie && cookieRes.status !== 200) continue
 
-      // 用 cookie 访问实际页面
-      const pageRes = await fetch(`http://127.0.0.1:${HARNESS_PORT}${location}`, {
+      // 用 cookie 访问实际页面。0.2.0-rc.2 的 location 是相对路径（如 ./），按 RFC 3986 用 new URL 解析，不能字符串拼接。
+      const pageRes = await fetch(new URL(location, PAGE_URL), {
         headers: setCookie ? { Cookie: setCookie.split(';')[0] } : {},
         signal: AbortSignal.timeout(1500),
       })
@@ -328,7 +329,7 @@ exec "${NODE_BIN}" --expose-internals "${harnessBin()}" --profile web --port ${H
 
     return { hasPlugin: pluginLoaded, bundleWarning }
   }
-  die(`harness 60 秒内没就绪，日志：${HARNESS_LOG}`)
+  die(`harness 180 秒内没就绪，日志：${HARNESS_LOG}`)
 }
 
 async function down() {

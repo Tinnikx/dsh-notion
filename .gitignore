@@ -4,3 +4,4 @@ node_modules/
 .scratch
 .fetched
 tmp
+.qoder
