@@ -111,7 +111,7 @@ dsh plugin --profile web remove dsh-notion-mcp
 
 ## Requirements
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (`dsh`) — verified compatible with `v0.1.0-rc.8`, `v0.1.1-rc.1`, `v0.1.1-rc.2`, `v0.1.2-alpha.1`, `v0.1.2-rc.1`, and `v0.2.0-rc.2`
+- [DeepSeek Harness](https://github.com/deepseek-ai/dsh) (`dsh`) — verified compatible with `v0.1.0-rc.8`, `v0.1.1-rc.1`, `v0.1.1-rc.2`, `v0.1.2-alpha.1`, `v0.1.2-rc.1`, `v0.2.0-rc.2`, and `v0.2.1-alpha.1`
 - Node.js `^22.19.0` or `>=24.0.0` (matching dsh `v0.1.2-alpha.1`; Node 23 is outside the supported range)
 
 ## Development
@@ -127,7 +127,8 @@ pnpm stack:up       # boots a real harness on an isolated DSH_HOME and a non-308
 Dependencies and builds use pnpm (`pnpm-workspace.yaml` + `pnpm-lock.yaml` at the repo root). Read these constraints before touching dependencies:
 
 - **Commit the built `lib/` output and declare no `prepare` script in package.json**: a git-hosted install is then "not buildable", so the installing side needs no allowBuilds entry and nothing breaks as the repo advances. After editing source, run `pnpm run build` and commit `lib/` together with the change.
-- **`autoInstallPeers: false` (in `pnpm-workspace.yaml`) must stay false**: this repo's `@deepseek-ai` peer chain includes non-public packages (e.g. `dsh-type-meta`), so auto-installing peers always fails with a 404. The `@deepseek-ai/*` packages the plugin needs at runtime must therefore be listed **explicitly** in devDependencies and maintained as the full closure (21 packages, including `dsh-subprocess` and `dsh-tools`, which `dsh-mcp-client` imports statically). If one is missing, the harness fails with `ERR_MODULE_NOT_FOUND` when loading the plugin via a `link:` from this checkout — the repo's own node_modules shadows the harness runtime, so a missing package cannot fall back to another copy.
+- **`autoInstallPeers: false` (in `pnpm-workspace.yaml`) must stay false**: the `@deepseek-ai/*` packages the plugin needs at runtime must therefore be listed **explicitly** in devDependencies and maintained as the full closure matching the harness version (**32** `@deepseek-ai/*` packages: 28 `dsh-*` plus `cordis`, `cordis-plugin-loader`, `cosmokit`, and `schemastery`, including `dsh-subprocess` and `dsh-tools`, which `dsh-mcp-client` imports statically). If one is missing, the harness fails with `ERR_MODULE_NOT_FOUND` when loading the plugin via a `link:` from this checkout — the repo's own node_modules shadows the harness runtime, so a missing package cannot fall back to another copy. Auto-installing peers would resolve floating ranges into versions that drift from the harness, hence it stays off.
+- **Versions must be pinned exactly, never `"*"`**: these packages keep stale `latest` tags (e.g. `dsh-mcp-client`'s latest is still `0.0.1-rc.1`), while the harness-matching versions live only on prerelease tags such as `alpha` / `dsh-0-2-1-alpha-1`, which `"*"` never resolves to. devDependencies mirror the shipped dist version-for-version so that `pnpm-lock.yaml` is the single source of truth for "the set of versions we verified".
 - Manage dependencies with pnpm only: commit `pnpm-lock.yaml` and never commit npm's `package-lock.json` (two lockfiles drift apart).
 - `allowBuilds` in `pnpm-workspace.yaml` allows esbuild's build script (pnpm 11 accepts exact versions only) for local `pnpm install`; keep the version in sync when upgrading dependencies.
 

@@ -1,6 +1,6 @@
 /**
  * 测试栈：一个与日常使用完全隔离的 harness，用于验证 dsh-notion-mcp 插件
- * 与 harness v0.1.2-rc.1 的兼容性。
+ * 与当前 harness 版本（见 harness-v*-adaptation-report.md）的兼容性。
  *
  * dsh-notion 是纯 host 插件（无 client bundle），不需要 Chrome。
  * 测试只需验证：
@@ -8,7 +8,7 @@
  * 2. 插件被正确加载（日志中出现 [dsh-notion-mcp] 输出）
  * 3. 无 "declares no dsh.bundle" 警告
  *
- * v0.1.2-rc.1 引入了 token 认证：首次访问 /?token=XXX 设置 cookie，
+ * v0.1.2-rc.1 起引入 token 认证：首次访问 /?token=XXX 设置 cookie，
  * 后续请求需要带 cookie 才能拿到 200 + __DSH_BOOT__。
  *
  * 用法：

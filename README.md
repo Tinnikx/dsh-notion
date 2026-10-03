@@ -110,7 +110,7 @@ dsh plugin --profile web remove dsh-notion-mcp
 
 ## 环境要求
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/dsh)（`dsh`）—— 已验证兼容 `v0.1.0-rc.8`、`v0.1.1-rc.1`、`v0.1.1-rc.2`、`v0.1.2-alpha.1`、`v0.1.2-rc.1`、`v0.2.0-rc.2`
+- [DeepSeek Harness](https://github.com/deepseek-ai/dsh)（`dsh`）—— 已验证兼容 `v0.1.0-rc.8`、`v0.1.1-rc.1`、`v0.1.1-rc.2`、`v0.1.2-alpha.1`、`v0.1.2-rc.1`、`v0.2.0-rc.2`、`v0.2.1-alpha.1`
 - Node.js `^22.19.0` 或 `>=24.0.0`（与 dsh `v0.1.2-alpha.1` 一致；Node 23 不在支持范围内）
 
 ## 开发
@@ -126,7 +126,8 @@ pnpm stack:up       # 隔离 DSH_HOME + 独立端口启动真实 harness，验�
 依赖与构建基于 pnpm（仓库根 `pnpm-workspace.yaml` + `pnpm-lock.yaml`）。改依赖前先读下面的约束：
 
 - **`lib/` 产物提交入库，package.json 不声明 `prepare` 脚本**：git-hosted 安装因此「无需构建」，安装方不需要 allowBuilds，也不随仓库提交变化而失效。改源码后先 `pnpm run build`，再把 `lib/` 和源码一起提交。
-- **`autoInstallPeers: false`（`pnpm-workspace.yaml`）不能打开**：本仓库的 `@deepseek-ai` peer 链包含非公开包（如 `dsh-type-meta`），自动安装 peer 必然 404。运行期需要的 `@deepseek-ai/*` 必须**显式**列在 devDependencies 中，并维护为完整闭包（21 个包，含 `dsh-mcp-client` 静态 import 的 `dsh-subprocess`、`dsh-tools`）。漏装时，harness 以 `link:` 从本仓库加载插件会报 `ERR_MODULE_NOT_FOUND`——仓库自身的 node_modules 优先于 harness 运行时的解析，缺包无法回退。
+- **`autoInstallPeers: false`（`pnpm-workspace.yaml`）不能打开**：运行期需要的 `@deepseek-ai/*` 必须**显式**列在 devDependencies 中，并维护为与 harness 版本对齐的完整闭包（**32 个** `@deepseek-ai/*`：28 个 `dsh-*` + `cordis`、`cordis-plugin-loader`、`cosmokit`、`schemastery`，含 `dsh-mcp-client` 静态 import 的 `dsh-subprocess`、`dsh-tools`）。漏装时，harness 以 `link:` 从本仓库加载插件会报 `ERR_MODULE_NOT_FOUND`——仓库自身的 node_modules 优先于 harness 运行期的解析，缺包无法回退。自动安装 peer 会按浮动 range 解析出与 harness 不一致的版本，因此关闭。
+- **版本必须钉死精确值，不能写 `"*"`**：这些包的 `latest` tag 仍停在老版本（如 `dsh-mcp-client` 的 latest 是 `0.0.1-rc.1`），harness 对应版本只挂在 `alpha` / `dsh-0-2-1-alpha-1` 这类 prerelease tag 上，`"*"` 解析不到它们。devDependencies 逐字对齐产品 dist 的版本，让 `pnpm-lock.yaml` 成为"验证过的那组版本"的唯一真相。
 - 依赖只由 pnpm 管理：提交 `pnpm-lock.yaml`，不提交 npm 的 `package-lock.json`（双锁文件会漂移）。
 - `pnpm-workspace.yaml` 的 `allowBuilds` 放行 `esbuild` 的构建脚本（pnpm 11 只接受精确版本），供本地 `pnpm install` 使用；升级依赖时同步更新该版本号。
 
