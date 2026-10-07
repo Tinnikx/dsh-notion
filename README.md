@@ -110,7 +110,7 @@ dsh plugin --profile web remove dsh-notion-mcp
 
 ## 环境要求
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）—— 已验证兼容 `v0.1.0-rc.8`、`v0.1.1-rc.1`、`v0.1.1-rc.2`、`v0.1.2-alpha.1`、`v0.1.2-rc.1`、`v0.2.0-rc.2`、`v0.2.1-alpha.1`
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）—— 已验证兼容 `v0.2.1-alpha.1`。更早的 `v0.2.0-rc.2`、`v0.1.2-rc.1`、`v0.1.2-alpha.1`、`v0.1.1-rc.2`、`v0.1.1-rc.1`、`v0.1.0-rc.8` 各自在当时的适配轮次验证过（见本仓库适配报告与提交历史），但依赖闭包整体钉到 `0.2.1-alpha.1` 之后**未重新验证**，不保证仍可用
 - Node.js `^22.19.0` 或 `>=24.0.0`（与 dsh `v0.1.2-alpha.1` 一致；Node 23 不在支持范围内）
 
 ## 开发
